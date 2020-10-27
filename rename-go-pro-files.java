@@ -52,8 +52,6 @@ class hello implements Callable<Integer> {
                         } catch (IOException e) {
                             e.printStackTrace();
                         }
-//                        System.out.println(path.getFileName());
-//                        path.toFile().renameTo(new File("TOAST.mp4"));
                     });
         }
         return 0;
