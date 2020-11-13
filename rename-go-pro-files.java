@@ -60,7 +60,7 @@ class Rename implements Callable<Integer> {
                             DecimalFormat df = new DecimalFormat("00");
                             String fileName = "go-pro-" + creationDate.getYear() + "-"
                                     + df.format(creationDate.getMonthOfYear()) + "-"
-                                    + df.format(creationDate.getDayOfMonth()) + "_("
+                                    + df.format(creationDate.getDayOfMonth()) + " ("
                                     + df.format(creationDate.getHourOfDay()) + "h"
                                     + df.format(creationDate.getMinuteOfHour()) + ")";
                             fileName = filenameAlreadyExist(currentDirectory, path, fileName);
