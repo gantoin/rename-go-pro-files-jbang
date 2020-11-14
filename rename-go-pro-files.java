@@ -2,7 +2,9 @@
 //DEPS info.picocli:picocli:4.5.0
 //DEPS joda-time:joda-time:2.10.8
 //DEPS commons-io:commons-io:2.6
+//DEPS org.apache.commons:commons-lang3:3.11
 
+import static java.lang.Integer.parseInt;
 import static java.lang.System.getProperty;
 import static java.lang.System.out;
 import static java.nio.file.Files.readAttributes;
@@ -10,6 +12,7 @@ import static java.nio.file.Files.walk;
 import static java.nio.file.Paths.get;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.commons.io.FileUtils.contentEquals;
+import static org.apache.commons.lang3.StringUtils.isNumeric;
 import static org.joda.time.DateTimeZone.forTimeZone;
 
 import java.io.File;
@@ -18,8 +21,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.text.DecimalFormat;
-import java.util.ArrayList;
-import java.util.Set;
 import java.util.TimeZone;
 import java.util.concurrent.Callable;
 import java.util.stream.Stream;
@@ -39,6 +40,7 @@ class Rename implements Callable<Integer> {
     private static final String BLUE = "\u001B[34m";
 
     private static final String OUTPUT_EXTENSION = ".mp4";
+    private static final String CURRENT_DIRECTORY = getProperty("user.dir");
 
     public static void main(String... args) {
         int exitCode = new CommandLine(new Rename()).execute(args);
@@ -47,8 +49,7 @@ class Rename implements Callable<Integer> {
 
     @Override
     public Integer call() throws Exception {
-        String currentDirectory = getProperty("user.dir");
-        try (Stream<Path> paths = walk(get(currentDirectory))) {
+        try (Stream<Path> paths = walk(get(CURRENT_DIRECTORY))) {
             paths.filter(Files::isRegularFile).filter(f -> !f.toFile().isDirectory())
                     .filter(f -> f.getFileName().toString().startsWith("GO"))
                     .filter(f -> f.getFileName().toString().endsWith(".MP4")) //
@@ -63,7 +64,7 @@ class Rename implements Callable<Integer> {
                                     + df.format(creationDate.getDayOfMonth()) + " ("
                                     + df.format(creationDate.getHourOfDay()) + "h"
                                     + df.format(creationDate.getMinuteOfHour()) + ")";
-                            fileName = filenameAlreadyExist(currentDirectory, path, fileName);
+                            fileName = filenameAlreadyExist(path, fileName);
                             File newFile = new File(fileName + OUTPUT_EXTENSION);
                             boolean renamed = path.toFile().renameTo(newFile);
                             if (renamed) {
@@ -78,14 +79,19 @@ class Rename implements Callable<Integer> {
         return 0;
     }
 
-    private String filenameAlreadyExist(String currentDirectory, Path path, String fileName) {
-        if (getRenamedMp4Names(currentDirectory).contains(fileName + OUTPUT_EXTENSION)) {
-            ArrayList<File> files = new ArrayList<>(getRenamedMp4Files(currentDirectory));
-            return files.stream().map(file -> {
+    private String filenameAlreadyExist(Path path, String fileName) throws IOException {
+        if (walkMp4Files().map(f -> f.getFileName().toString()).collect(toSet())
+                .contains(fileName + OUTPUT_EXTENSION)) {
+            return walkMp4Files().map(Path::toFile).collect(toSet()).stream().map(file -> {
                 String f = fileName;
                 try {
                     if (!contentEquals(path.toFile(), file)) {
-                        f += "-1";
+                        String lastChar = file.getName().substring(file.getName().length() - 5);
+                        if (isNumeric(lastChar)) {
+                            f += "-" + (parseInt(lastChar) + 1);
+                        } else {
+                            f += "-1";
+                        }
                     }
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -96,24 +102,8 @@ class Rename implements Callable<Integer> {
         return fileName;
     }
 
-    private Set<String> getRenamedMp4Names(String currentDirectory) {
-        try {
-            return walk(get(currentDirectory)).filter(f -> f.getFileName().toString().endsWith(".mp4"))
-                    .map(f -> f.getFileName().toString()).collect(toSet());
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return Set.of();
-    }
-
-    private Set<File> getRenamedMp4Files(String currentDirectory) {
-        try {
-            return walk(get(currentDirectory)).filter(f -> f.getFileName().toString().endsWith(".mp4"))
-                    .map(Path::toFile).collect(toSet());
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return Set.of();
+    private Stream<Path> walkMp4Files() throws IOException {
+        return walk(get(CURRENT_DIRECTORY)).filter(f -> f.getFileName().toString().endsWith(".mp4"));
     }
 
 }
