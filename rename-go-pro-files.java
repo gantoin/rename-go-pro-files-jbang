@@ -3,6 +3,8 @@
 //DEPS joda-time:joda-time:2.10.8
 //DEPS commons-io:commons-io:2.6
 //DEPS org.apache.commons:commons-lang3:3.11
+//DEPS junit:junit:4.4
+//DEPS org.assertj:assertj-core:3.8.0
 
 import static java.lang.Integer.parseInt;
 import static java.lang.System.getProperty;
@@ -13,19 +15,25 @@ import static java.nio.file.Paths.get;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.commons.io.FileUtils.contentEquals;
 import static org.apache.commons.lang3.StringUtils.isNumeric;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.joda.time.DateTimeZone.forTimeZone;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.text.DecimalFormat;
+import java.util.Set;
 import java.util.TimeZone;
 import java.util.concurrent.Callable;
 import java.util.stream.Stream;
 
 import org.joda.time.DateTime;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
@@ -50,7 +58,8 @@ class Rename implements Callable<Integer> {
     @Override
     public Integer call() throws Exception {
         try (Stream<Path> paths = walk(get(CURRENT_DIRECTORY))) {
-            paths.filter(Files::isRegularFile).filter(f -> !f.toFile().isDirectory())
+            paths.filter(Files::isRegularFile) //
+                    .filter(f -> !f.toFile().isDirectory()) //
                     .filter(f -> f.getFileName().toString().startsWith("GO"))
                     .filter(f -> f.getFileName().toString().endsWith(".MP4")) //
                     .forEach(path -> {
@@ -104,6 +113,37 @@ class Rename implements Callable<Integer> {
 
     private Stream<Path> walkMp4Files() throws IOException {
         return walk(get(CURRENT_DIRECTORY)).filter(f -> f.getFileName().toString().endsWith(".mp4"));
+    }
+
+    @SuppressWarnings("ResultOfMethodCallIgnored")
+    public static class RenameTest {
+
+        @Before
+        public void setUp() {
+
+        }
+
+        @After
+        public void tearDown() throws IOException {
+            walk(get(CURRENT_DIRECTORY)).filter(
+                    f -> f.getFileName().toString().endsWith(".mp4") || f.getFileName().toString().endsWith(".MP4"))
+                    .forEach(path -> {
+                        new File(String.valueOf(path)).delete();
+                    });
+        }
+
+        @Test
+        public void overwriteSameFiles() throws Exception {
+            Rename rename = new Rename();
+            new FileOutputStream(new File(CURRENT_DIRECTORY + "/GOPRO1.MP4"));
+            new FileOutputStream(new File(CURRENT_DIRECTORY + "/GOPRO2.MP4"));
+            rename.call();
+            Set<Path> paths = walk(get(CURRENT_DIRECTORY)).filter(f -> f.getFileName().toString().endsWith(".mp4"))
+                    .collect(toSet());
+            assertThat(paths).size().isEqualTo(1);
+            assertThat(paths.iterator().next().toFile().getName()).contains("go-pro");
+        }
+
     }
 
 }
