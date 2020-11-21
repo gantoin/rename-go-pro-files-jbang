@@ -24,10 +24,13 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.security.SecureRandom;
 import java.text.DecimalFormat;
+import java.util.List;
 import java.util.Set;
 import java.util.TimeZone;
 import java.util.concurrent.Callable;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.joda.time.DateTime;
@@ -142,6 +145,26 @@ class Rename implements Callable<Integer> {
                     .collect(toSet());
             assertThat(paths).size().isEqualTo(1);
             assertThat(paths.iterator().next().toFile().getName()).contains("go-pro");
+        }
+
+        @Test
+        public void renameDifferentFilesWithSameCreationTine() throws Exception {
+            Rename rename = new Rename();
+            try (FileOutputStream out = new FileOutputStream(new File(CURRENT_DIRECTORY + "/GOPRO1.MP4"))) {
+                byte[] bytes = new byte[1024];
+                new SecureRandom().nextBytes(bytes);
+                out.write(bytes);
+            }
+            new FileOutputStream(new File(CURRENT_DIRECTORY + "/GOPRO2.MP4"));
+            rename.call();
+            Set<Path> paths = walk(get(CURRENT_DIRECTORY)).filter(f -> f.getFileName().toString().endsWith(".mp4"))
+                    .collect(toSet());
+            assertThat(paths).size().isEqualTo(2);
+            List<String> fileNames = paths.stream().map(f -> f.toFile().getName()).collect(Collectors.toList());
+            fileNames.forEach(fileName -> {
+                assertThat(fileName).startsWith("go-pro");
+            });
+            assertThat(fileNames).doesNotContain("GOPRO");
         }
 
     }
