@@ -98,11 +98,12 @@ class Rename implements Callable<Integer> {
                 String f = fileName;
                 try {
                     if (!contentEquals(path.toFile(), file)) {
-                        String lastChar = file.getName().substring(file.getName().length() - 5);
+                        String lastChar = file.getName().substring(file.getName().length() - 5).substring(0, 1);
                         if (isNumeric(lastChar)) {
                             f += "-" + (parseInt(lastChar) + 1);
                         } else {
                             f += "-1";
+                            f = filenameAlreadyExist(path, f);
                         }
                     }
                 } catch (IOException e) {
@@ -160,6 +161,31 @@ class Rename implements Callable<Integer> {
             Set<Path> paths = walk(get(CURRENT_DIRECTORY)).filter(f -> f.getFileName().toString().endsWith(".mp4"))
                     .collect(toSet());
             assertThat(paths).size().isEqualTo(2);
+            List<String> fileNames = paths.stream().map(f -> f.toFile().getName()).collect(Collectors.toList());
+            fileNames.forEach(fileName -> {
+                assertThat(fileName).startsWith("go-pro");
+            });
+            assertThat(fileNames).doesNotContain("GOPRO");
+        }
+
+        @Test
+        public void renameThreeDifferentFilesWithSameCreationTine() throws Exception {
+            Rename rename = new Rename();
+            try (FileOutputStream out = new FileOutputStream(new File(CURRENT_DIRECTORY + "/GOPRO1.MP4"))) {
+                byte[] bytes = new byte[1024];
+                new SecureRandom().nextBytes(bytes);
+                out.write(bytes);
+            }
+            try (FileOutputStream out = new FileOutputStream(new File(CURRENT_DIRECTORY + "/GOPRO2.MP4"))) {
+                byte[] bytes = new byte[64];
+                new SecureRandom().nextBytes(bytes);
+                out.write(bytes);
+            }
+            new FileOutputStream(new File(CURRENT_DIRECTORY + "/GOPRO3.MP4"));
+            rename.call();
+            Set<Path> paths = walk(get(CURRENT_DIRECTORY)).filter(f -> f.getFileName().toString().endsWith(".mp4"))
+                    .collect(toSet());
+            assertThat(paths).size().isEqualTo(3);
             List<String> fileNames = paths.stream().map(f -> f.toFile().getName()).collect(Collectors.toList());
             fileNames.forEach(fileName -> {
                 assertThat(fileName).startsWith("go-pro");
